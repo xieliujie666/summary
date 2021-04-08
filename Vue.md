@@ -55,7 +55,7 @@ vue2.x的响应式原理：
 
 **level1:** vue2.0中，响应式实现的核心就是 ES5的Object.defineProperty(obj, prop, descriptor). 通过Object.defineProperty()劫持data和props各个属性的getter和setter，getter做依赖收集，setter派发更新。整体来说是一个 数据劫持 + 发布-订阅者模式。
 
-**level2:** 具体来说， ① vue初始化阶段(beforeCreate之后create之前)，遍历data/props，调用Object.defineProperty给每个属性加上getter、setter。② 每个组件、每个computed都会实例化一个watcher（当然也包括每个自定义watcher,刷新界面、计算属性和侦听属性都属于观察者 ），订阅渲染/计算所用到的所用data/props/computed，一旦数据发生变化，setter被调用，会通知渲染watcher重新计算、更新组件。
+**level2:** 具体来说， ① vue初始化阶段(beforeCreate之后create之前)，遍历data/props，调用Object.defineProperty给每个属性加上getter、setter。② 每个组件、每个computed都会实例化一个watcher（当然也包括每个自定义watcher,刷新界面、计算属性和侦听属性都属于观察者 ），订阅渲染/计算所用到的所用data/props/computed，一旦数据发生变化，setter被调用，会通知watcher重新计算、更新组件。
 
     function observer(data) {
       // 仅当 data 为数组和纯对象时才执行
@@ -112,6 +112,10 @@ vue2.x的响应式原理：
 - 我们发现，当添加属性或删除属性时，不会更新视图，这是因为 Object.defineProperty() 方法本就无法监听其属性的新增和删除，因而 vue 内置了 Vue.set / Vue.delete 
 
 ### **Virtual DOM**（虚拟DOM）
+
+虚拟 dom 是相对于浏览器所渲染出来的真实 dom 的，在 react，vue 等技术出现之前，
+我们要改变页面展示的内容只能通过遍历查询 dom 树的方式找到需要修改的 dom 然
+后修改样式行为或者结构，来达到更新 ui 的目的。这种方式相当消耗计算资源，因为每次查询 dom 几乎都需要遍历整颗 dom 树，如果建立一个与 dom 树对应的虚拟 dom 对象（ js 对象），以对象嵌套的方式来表示 dom树，那么每次 dom 的更改就变成了 js 对象的属性的更改，这样一来就能查找 js 对象的属性变化要比查询 dom 树的性能开销小
 
 ```
 <div class="wrapper" id="box" index="1" key="1">
@@ -188,7 +192,51 @@ vue2.x的响应式原理：
 4. 对象里面还有复杂数据类型的话，需要递归劫持里面的每一个属性（Proxy 也需要递归，但递归的是一个对象）
 
 5. 核心一句话，换成 Proxy 主要是出于性能考虑
-  
+
+   Object.defineProperty是一个相对比较昂贵的操作，因为它直接操作对象的属性，颗粒度比较小。将它替换为es6的Proxy，在目标对象之上架了一层拦截，代理的是对象而不是对象的属性。这样可以将原本对对象属性的操作变为对整个对象的操作，颗粒度变大。
+
+   javascript引擎在解析的时候希望对象的结构越稳定越好，如果对象一直在变，可优化性降低，proxy不需要对原始对象做太多操作
+
+### Vue
+
+  V ue理 解
+Vue 是一个构建数据驱动的渐进性框架，它的目标是通过 API 实现响应数据绑定和视图
+更新。
+
+是m-v-vm模式，即（`model-view-modelView`），通过modelView作为中间层（即vm的实例），进行双向数据的绑定与变化。
+
+1. 通过建立虚拟dom树`document.createDocumentFragment()`,方法创建虚拟dom树。
+
+2. 一旦被监测的数据改变，会通过`Object.defineProperty`定义的数据拦截，截取到数据的变化。
+
+3. 截取到的数据变化，从而通过订阅——发布者模式，触发`Watcher`（观察者）,从而改变虚拟dom的中的具体数据。
+
+4. 最后，通过更新虚拟dom的元素值，从而改变最后渲染dom树的值，完成双向绑定
+
+    优 缺 点：
+
+   优点：
+
+   1、数据驱动视图，对真实 dom 进行抽象出 virtual dom（本质就是一个 js 对象），
+   并配合 diff 算法、响应式和观察者、异步队列等手段以最小代价更新 dom，渲染
+   页面
+   2、组件化，组件用单文件的形式进行代码的组织编写，使得我们可以在一个文
+   件里编写 html\css（scoped 属性配置 css 隔离）\js 并且配合 Vue-loader 之后，支
+   持更强大的预处理器等功能
+   3、强大且丰富的 API 提供一系列的 api 能满足业务开发中各类需求
+   4、由于采用虚拟 dom，让 Vue ssr 先天就足
+   5、生命周期钩子函数，选项式的代码组织方式，写熟了还是蛮顺畅的，但仍然
+   有优化空间（Vue3 composition-api）
+   6、生态好，社区活跃
+   缺点：
+   1、由于底层基于 Object.defineProperty 实现响应式，而这个 api 本身不支持 IE8
+   及以下浏览器
+   2、csr 的先天不足，首屏性能问题（白屏）
+   3、由于百度等搜索引擎爬虫无法爬取 js 中的内容，故 spa 先天就对 seo 优化心
+   有余力不足（谷歌的 puppeteer 就挺牛逼的，实现预渲染底层也是用到了这个工
+   具）
+
+
 
 # 4.Vue中的nextTick？
 
@@ -210,21 +258,196 @@ JS 运行机制  ：JS 执行是单线程的，它是基于事件循环的。事
 
  
 
+# 5.vue-router的两种模式 ??
+
+ SPA(single page application):单一页面应用程序，只有一个完整的页面；它在加载页面时，不会加载整个页面，而是只更新某个指定的容器中内容。**单页面应用(SPA)的核心之一是: 更新视图而不重新请求页面**;vue-router在实现单页面前端路由时，提供了两种方式：Hash模式和History模式；根据mode参数来决定采用哪一种方式。
+
+#### 1、Hash模式：
+
+**	vue-router 默认 hash 模式 —— 使用 URL 的 hash 来模拟一个完整的 URL，于是当 URL 改变时，页面不会重新加载。**hash（#）是URL 的锚点，代表的是网页中的一个位置，单单改变#后的部分，浏览器只会滚动到相应位置，不会重新加载网页，也就是说 #是用来指导浏览器动作的，对服务器端完全无用，HTTP请求中也不会不包括#；同时每一次改变#后的部分，都会在浏览器的访问历史中增加一个记录，使用”后退”按钮，就可以回到上一个位置；所以说**Hash模式通过锚点值的改变，根据不同的值，渲染指定DOM位置的不同数据**
+
+​	hash模式背后的原理是onhashchange事件,可以在window对象上监听这个事件:
+
+window.onhashchange=function(event){
+
+console.log(event.oldURL,event.newURL);
+
+lethash=location.hash.slice(1);
+
+ hash发生变化的url都会被浏览器记录下来，从而你会发现浏览器的前进后退都可以用了 .这样一来，尽管浏览器没有请求服务器，但是页面状态和url一一关联起来，后来人们给它起了一个霸气的名字叫前端路由，成为了单页应用标配。
+
+#### 2、History模式：
+
+由于hash模式会在url中自带#，如果不想要很丑的 hash，我们可以用路由的 history 模式，只需要在配置路由规则时，加入"mode: 'history'",这种模式充分利用 history.pushState API 来完成 URL 跳转而无须重新加载页面。
+
+前面的hashchange，你只能改变#后面的url片段，而history api则给了前端完全的自由
+
+history api可以分为两大部分，切换和修改
+
+切换历史状态:包括back,forward,go三个方法，对应浏览器的前进，后退，跳转操作
+
+修改历史状态:包括了pushState,replaceState两个方法,这两个方法接收三个参数:stateObj,title,url
+
+ 通过pushstate把页面的状态保存在state对象中，当页面的url再变回这个url时，可以通过event.state取到这个state对象，从而可以对页面状态进行还原，这里的页面状态就是页面字体颜色，其实滚动条的位置，阅读进度，组件的开关
+
+```
+//main.js文件中
+const router = new VueRouter({
+  mode: 'history',
+  routes: [...]
+})
+```
+
+当你使用 history 模式时，URL 就像正常的 url，例如 <http://yoursite.com/user/id>
+不过这种模式要玩好，还需要后台配置支持。因为我们的应用是个单页客户端应用，如果后台没有正确的配置，当用户在浏览器直接访问 <http://oursite.com/user/id> 就会返回 404，这就不好看了。
+所以呢，**你要在服务端增加一个覆盖所有情况的候选资源：如果 URL 匹配不到任何静态资源，则应该返回同一个 index.html 页面，这个页面就是你 app 依赖的页面。**
+
+```
+ export const routes = [ 
+  {path: "/", name: "homeLink", component:Home}
+ {path: "/register", name: "registerLink", component: Register},
+ {path: "/login", name: "loginLink", component: Login},
+{path: "*", redirect: "/"}]
+```
+
+此处就设置如果URL输入错误或者是URL 匹配不到任何静态资源，就自动跳到到Home页面
+
+#### 3、使用路由模块来实现页面跳转的方式
+
+方式1：直接修改地址栏
+
+方式2：this.$router.push(‘路由地址’)
+
+方式3：`<router-link to="路由地址"></router-link>`
+
+# 6.vue3.0 新特性 
+
+**1、双向绑定**
+2.0现有限制：
+
+无法检测到新的属性添加/删除
+无法监听数组的变化
+需要深度遍历，浪费内存
+3.0优化：
+
+使用 ES6的Proxy 作为其观察者机制，取代之前使用的Object.defineProperty。Proxy默认可以支持数组
+允许框架拦截对象上的操作
+多层对象嵌套，使用懒代理
+**2、虚拟DOM**
+2.0 VDOM性能瓶颈：
+* 虽然vue能够保证触发更新的组件最小化，但单个组件部分变化需要遍历该组件的整个vdom树
+* 传统vdom性能跟模版大小正相关，跟动态节点的数量无关
+  3.0优化工作
+  在 vue 3.0 中重新推翻后重写了虚拟 DOM 的实现，官方宣称渲染速度最快可以翻倍。更多编译时的优化以减少运行时的开销
+
+**3、Tree-Shaking**
+2.0现有限制： 并不是每个人都使用框架的所有功能，但仍需下载/解析相应代码
+3.0优化：将大多数全局API和内部组件移至ES模块导出，？？tree-shaking更友好（Tree-shaking的本质是消除无用的js代码。 ）
+
+
+**4、Composition API**
+
+ (1)使用传统的option配置方法写组件的时候问题，随着业务复杂度越来越高，代码量会不断的加大；由于相关业务的代码需要遵循option的配置写到特定的区域，导致后续维护非常的复杂，同时代码可复用性不高，而composition-api就是为了解决这个问题而生的
+
+- state更名为reactive。reactive等价于 Vue 2.x 的Vue.observable()，用于获取一个对象的响应性代理对象    const obj = reactive({ count: 0 });
+- value更名为ref，并提供isRef和toRefs。const unwrapped = isRef(foo) ? foo.value : foo;
+- watch可作用于单一函数
+
+(2) composition-api详细：
+
+1、setup 函数
+setup() 函数是 vue3 中，专门为组件提供的新属性。它为我们使用 vue3 的 Composition API 新特性提供了统一的入口。会在 beforeCreate 之后、created 之前执行
+
+1.2 形参
+第一个形参 props 用来接收 props 数据，**第二个形参 context 用来定义上下文** 
+
+**reactive 函数**
+
+`reactive()` 函数接收一个普通对象，返回一个响应式的数据对象
+
+**ref 函数**
+
+`ref()` 函数用来根据给定的值创建一个响应式的数据对象，`ref()` 函数调用的返回值是一个对象，这个对象上只包含一个 `value` 属性
+
+`isRef()` 用来判断某个值是否为 ref() 创建出来的对象 
+
+`toRefs()` 函数可以将 `reactive()` 创建出来的响应式对象，转换为普通的对象，只不过，这个对象上的每个属性节点，都是 `ref()` 类型的响应式数据 
+
+**LifeCycle Hooks**
+
+新版的生命周期函数，可以按需导入到组件中，且只能在 setup() 函数中使用
+
+列表，是 vue 2.x 的生命周期函数与新版 Composition API 之间的映射关系：
+
+beforeCreate -> use setup()
+created -> use setup()
+beforeMount -> onBeforeMount
+mounted -> onMounted
+beforeUpdate -> onBeforeUpdate
+updated -> onUpdated
+beforeDestroy -> onBeforeUnmount
+destroyed -> onUnmounted
+errorCaptured -> onErrorCaptured
+
+# 7.生命周期
+
+- 创建前后 beforeCreate/created
+
+在beforeCreate 阶段，vue实例的挂载元素el和数据对象data都为undefined，还未初始化。在created阶段，vue实例的数据对象有了，el还没有。
+
+- 载入前后 beforeMount/mounted
+
+在beforeMount阶段，vue实例的$el和data都初始化了，但还是挂载之前未虚拟的DOM节点，data尚未替换。 
+在mounted阶段，vue实例挂载完成，data成功渲染。
+
+- 更新前后 beforeUpdate/updated
+
+当data变化时，会触发beforeUpdate和updated方法。这两个不常用，不推荐使用。
+
+- 销毁前后beforeDestory/destoryed
+
+beforeDestory是在vue实例销毁前触发，一般在这里要通过removeEventListener解除手动绑定的事件。实例销毁后，触发的destroyed。
+
+# 8.计算属性和 watch 的区别
+
+计算属性是自动监听依赖值的变化，从而动态返回内容，监听是一个过程，在监听的值变化时，可以触发一个回调，并做一些事情。
+所以区别来源于用法，只是需要动态值，那就用计算属性；需要知道值的改变后执行业务逻辑，才用 watch，用反或混用虽然可行，但都是不正确的用法。
+**说出一下区别会加分**
+computed 是一个对象时，它有哪些选项？
+computed 和 methods 有什么区别？
+computed 是否能依赖其它组件的数据？
+watch 是一个对象时，它有哪些选项？
+
+1. 有get和set两个选项
+2. methods是一个方法，它可以接受参数，而computed不能，computed是可以缓存的，methods不会。
+3. computed可以依赖其他computed，甚至是其他组件的data
+4. watch 配置 
+   handler
+   deep 是否深度
+   immeditate 是否立即执行
+
+**总结**
+
+当有一些数据需要随着另外一些数据变化时，建议使用computed。
+当有一个通用的响应数据变化的时候，要执行一些业务逻辑或异步操作的时候建议使用watcher
+
+#  9.v-show 与 v-if 区别
+
+1. v-hsow和v-if的区别：
+   v-show是css切换，v-if是完整的销毁和重新创建。
+2. 使用
+   频繁切换时用v-show，运行时较少改变时用v-if
+3. v-if=‘false’ v-if是条件渲染，当false的时候不会渲染
+
  
 
-
-
-
-
-
-
-vue3改成了proxy，为什么使用proxy
-
  
 
- 
+ vue [keep](https://www.nowcoder.com/jump/super-jump/word?word=keep)-alive，对性能的影响 
 
- 
+ vue 八股文 
+
+ 实现一个数据结构，实现路由记录的插入、前进、后退 
 
  
 
