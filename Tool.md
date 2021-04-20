@@ -1,6 +1,8 @@
 
 
+## 1.你是如何学习[前端](https://www.nowcoder.com/jump/super-jump/word?word=%E5%89%8D%E7%AB%AF)的? 说一说你的学习经历 
 
+个人优缺点、[职业规划](https://www.nowcoder.com/jump/super-jump/word?word=%E8%81%8C%E4%B8%9A%E8%A7%84%E5%88%92) 为什么选择[前端](https://www.nowcoder.com/jump/super-jump/word?word=%E5%89%8D%E7%AB%AF) 18.接下来的学习计划 
 
 ## 2.自己做的[项目](https://www.nowcoder.com/jump/super-jump/word?word=%E9%A1%B9%E7%9B%AE)中有没有组件封装，有没有落地应用？
 
@@ -116,7 +118,7 @@ o git reset 只是把文件从历史记录区拿到暂存区，不影响工作�
 o git checkout 则是把文件从历史记录拿到工作区，不影响暂存区的内容。
 o git revert 不支持文件层面的操作。
 
-## 4.前端工程化
+## 前端工程化
 
 **模块化和组件化** 
 
@@ -145,7 +147,7 @@ o git revert 不支持文件层面的操作。
 
  
 
-## 5.Webpack
+## Webpack
 
 有试过webpack从0开始搭建 
 
@@ -346,3 +348,19 @@ Tree-shaking是指在打包中取出那些引入了但在代码中没有被用�
  
 
  
+
+ 
+
+
+
+
+
+
+
+## 反问：
+
+1、蚂蚁技术栈是什么？
+
+2、node是否是一定要掌握的呢？
+
+3、对我有什么评价和建议？
